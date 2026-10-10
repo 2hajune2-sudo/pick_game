@@ -1,0 +1,99 @@
+import keyboard
+import time
+import threading
+
+pick_Lv = 1
+muny_Lv = 1
+muny_m = 7       # 채굴당 돈 강화 비용
+fast_m = 5       # 곡괭이 속도 강화 비용
+muny = 0
+p = 0            # 0: 일반, 1: 강화소 안
+mining = False   # 채굴 중 여부
+
+lock = threading.Lock()
+
+print('돈을 벌어 보세요!')
+print('오른쪽 화살표로 광질하기 (돈 벌기)')
+print('왼쪽 화살표는 곡괭이 강화소')
+print('1000000g를 가지고 위 화살표로 엔딩')
+
+running = True
+
+
+def mine():
+    global muny, mining
+    print('광질중...')
+    time.sleep(max(0.5, 5 - pick_Lv))   # 최소 0.5초
+    with lock:
+        muny += muny_Lv
+        print('광질 완료! +{}원'.format(muny_Lv))
+        print('현재 보유 금액:', muny)
+        mining = False
+
+
+def r_pick(event):
+    global mining, muny, muny_Lv, muny_m
+    if p == 1:
+        # 강화소 안: 채굴당 돈 강화
+        with lock:
+            if muny >= muny_m:
+                muny -= muny_m
+                muny_m = round(muny_m * 1.9)
+                muny_Lv += 1
+                print('강화! 채굴당 +{}원'.format(muny_Lv))
+                print('다음 채굴당 돈 강화 비용 :', muny_m, 'g, 오른쪽 화살표')
+            else:
+                print('돈 부족 (필요: {}g, 보유: {}g)'.format(muny_m, muny))
+        return
+    if mining:
+        return            # 채굴 중 입력은 조용히 무시
+    mining = True
+    threading.Thread(target=mine, daemon=True).start()
+
+
+def l_p_u(event):
+    global p, fast_m, muny, pick_Lv
+    if mining:
+        print('광질 중에는 강화소에 들어갈 수 없어요')
+        return
+    if p == 0:
+        p = 1
+        print('<곡괭이 강화소>')
+        print('곡괭이 강화소 나가기 : 아래 화살표')
+        print('곡괭이 속도 강화 | 비용 :', fast_m, 'g, 왼쪽 화살표')
+        print('채굴당 돈 강화 | 비용 :', muny_m, 'g, 오른쪽 화살표')
+    elif p == 1:
+        with lock:
+            if muny >= fast_m:
+                muny -= fast_m
+                fast_m = round(fast_m * 1.9)
+                pick_Lv += 1
+                print('강화! 현재 곡괭이 Lv', pick_Lv)
+                print('다음 속도 강화 비용 :', fast_m, 'g, 왼쪽 화살표')
+            else:
+                print('돈 부족 (필요: {}g, 보유: {}g)'.format(fast_m, muny))
+
+
+def d_e(event):
+    global p
+    if p == 1:
+        print('강화소 나감')
+        p = 0
+
+
+def u_e(event):
+    global running
+    if muny >= 1000000:
+        print('엔딩, 축하합니다!')
+        running = False
+    else:
+        print('돈 부족. ({}/1000000)'.format(muny))
+
+
+keyboard.on_press_key("Right", r_pick)
+keyboard.on_press_key("Left", l_p_u)
+keyboard.on_press_key("Up", u_e)
+keyboard.on_press_key("Down", d_e)
+
+while running:
+    time.sleep(0.085)
